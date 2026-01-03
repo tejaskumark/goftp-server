@@ -16,7 +16,7 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
-	"goftp.io/server/v2"
+	"github.com/tejaskumark/goftp-server"
 )
 
 var _ server.Driver = &Driver{}

@@ -1,4 +1,4 @@
-module goftp.io/server/v2
+module github.com/tejaskumark/goftp-server
 
 go 1.23.0
 

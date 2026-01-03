@@ -13,7 +13,7 @@ import (
 	"net"
 	"strconv"
 
-	"goftp.io/server/v2/ratelimit"
+	"github.com/tejaskumark/goftp-server/ratelimit"
 )
 
 var version = "2.0beta"
@@ -72,6 +72,9 @@ type Options struct {
 
 	// Rate Limit per connection bytes per second, 0 means no limit
 	RateLimit int64
+
+	// DSCP value will be while sending data packets on passive data connection
+	DSCP int
 }
 
 // Server is the root of your FTP application. You should instantiate one
@@ -152,7 +155,11 @@ func optsWithDefaults(opts *Options) *Options {
 	newOpts.PublicIP = opts.PublicIP
 	newOpts.PassivePorts = opts.PassivePorts
 	newOpts.RateLimit = opts.RateLimit
-
+	if opts.DSCP < 0 || opts.DSCP > 63 {
+		newOpts.DSCP = 0
+	} else {
+		newOpts.DSCP = opts.DSCP
+	}
 	return &newOpts
 }
 

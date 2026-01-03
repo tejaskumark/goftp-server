@@ -12,16 +12,14 @@ import (
 	"testing"
 	"time"
 
-	"goftp.io/server/v2"
-	"goftp.io/server/v2/driver/file"
+	"github.com/tejaskumark/goftp-server/driver/file"
+	"github.com/tejaskumark/goftp-server"
 
 	"github.com/jlaffaye/ftp"
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	_ server.Notifier = &mockNotifier{}
-)
+var _ server.Notifier = &mockNotifier{}
 
 type mockNotifier struct {
 	actions []string
@@ -33,66 +31,79 @@ func (m *mockNotifier) BeforeLoginUser(ctx *server.Context, userName string) {
 	m.actions = append(m.actions, "BeforeLoginUser")
 	m.lock.Unlock()
 }
+
 func (m *mockNotifier) BeforePutFile(ctx *server.Context, dstPath string) {
 	m.lock.Lock()
 	m.actions = append(m.actions, "BeforePutFile")
 	m.lock.Unlock()
 }
+
 func (m *mockNotifier) BeforeDeleteFile(ctx *server.Context, dstPath string) {
 	m.lock.Lock()
 	m.actions = append(m.actions, "BeforeDeleteFile")
 	m.lock.Unlock()
 }
+
 func (m *mockNotifier) BeforeChangeCurDir(ctx *server.Context, oldCurDir, newCurDir string) {
 	m.lock.Lock()
 	m.actions = append(m.actions, "BeforeChangeCurDir")
 	m.lock.Unlock()
 }
+
 func (m *mockNotifier) BeforeCreateDir(ctx *server.Context, dstPath string) {
 	m.lock.Lock()
 	m.actions = append(m.actions, "BeforeCreateDir")
 	m.lock.Unlock()
 }
+
 func (m *mockNotifier) BeforeDeleteDir(ctx *server.Context, dstPath string) {
 	m.lock.Lock()
 	m.actions = append(m.actions, "BeforeDeleteDir")
 	m.lock.Unlock()
 }
+
 func (m *mockNotifier) BeforeDownloadFile(ctx *server.Context, dstPath string) {
 	m.lock.Lock()
 	m.actions = append(m.actions, "BeforeDownloadFile")
 	m.lock.Unlock()
 }
+
 func (m *mockNotifier) AfterUserLogin(ctx *server.Context, userName, password string, passMatched bool, err error) {
 	m.lock.Lock()
 	m.actions = append(m.actions, "AfterUserLogin")
 	m.lock.Unlock()
 }
+
 func (m *mockNotifier) AfterFilePut(ctx *server.Context, dstPath string, size int64, err error) {
 	m.lock.Lock()
 	m.actions = append(m.actions, "AfterFilePut")
 	m.lock.Unlock()
 }
+
 func (m *mockNotifier) AfterFileDeleted(ctx *server.Context, dstPath string, err error) {
 	m.lock.Lock()
 	m.actions = append(m.actions, "AfterFileDeleted")
 	m.lock.Unlock()
 }
+
 func (m *mockNotifier) AfterCurDirChanged(ctx *server.Context, oldCurDir, newCurDir string, err error) {
 	m.lock.Lock()
 	m.actions = append(m.actions, "AfterCurDirChanged")
 	m.lock.Unlock()
 }
+
 func (m *mockNotifier) AfterDirCreated(ctx *server.Context, dstPath string, err error) {
 	m.lock.Lock()
 	m.actions = append(m.actions, "AfterDirCreated")
 	m.lock.Unlock()
 }
+
 func (m *mockNotifier) AfterDirDeleted(ctx *server.Context, dstPath string, err error) {
 	m.lock.Lock()
 	m.actions = append(m.actions, "AfterDirDeleted")
 	m.lock.Unlock()
 }
+
 func (m *mockNotifier) AfterFileDownloaded(ctx *server.Context, dstPath string, size int64, err error) {
 	m.lock.Lock()
 	m.actions = append(m.actions, "AfterFileDownloaded")
@@ -112,7 +123,7 @@ func TestNotification(t *testing.T) {
 	err := os.MkdirAll("./testdata", os.ModePerm)
 	assert.NoError(t, err)
 
-	var perm = server.NewSimplePerm("test", "test")
+	perm := server.NewSimplePerm("test", "test")
 	driver, err := file.NewDriver("./testdata")
 	assert.NoError(t, err)
 
@@ -147,7 +158,7 @@ func TestNotification(t *testing.T) {
 			assert.Error(t, f.Login("admin", "1111"))
 			assetMockNotifier(t, mock, []string{"BeforeLoginUser", "AfterUserLogin"})
 
-			var content = `test`
+			content := `test`
 			assert.NoError(t, f.Stor("server_test.go", strings.NewReader(content)))
 			assetMockNotifier(t, mock, []string{"BeforePutFile", "AfterFilePut"})
 

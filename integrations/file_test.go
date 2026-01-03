@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"goftp.io/server/v2"
-	"goftp.io/server/v2/driver/file"
+	"github.com/tejaskumark/goftp-server/driver/file"
+	"github.com/tejaskumark/goftp-server"
 
 	"github.com/jlaffaye/ftp"
 	"github.com/stretchr/testify/assert"
@@ -23,7 +23,7 @@ func TestFileDriver(t *testing.T) {
 	err := os.MkdirAll("./testdata", os.ModePerm)
 	assert.NoError(t, err)
 
-	var perm = server.NewSimplePerm("test", "test")
+	perm := server.NewSimplePerm("test", "test")
 	driver, err := file.NewDriver("./testdata")
 	assert.NoError(t, err)
 
@@ -53,7 +53,7 @@ func TestFileDriver(t *testing.T) {
 			assert.NoError(t, f.Login("admin", "admin"))
 			assert.Error(t, f.Login("admin", ""))
 
-			var content = `test`
+			content := `test`
 			assert.NoError(t, f.Stor("server_test.go", strings.NewReader(content)))
 
 			names, err := f.NameList("/")
@@ -136,7 +136,7 @@ func TestLogin(t *testing.T) {
 	err := os.MkdirAll("./testdata", os.ModePerm)
 	assert.NoError(t, err)
 
-	var perm = server.NewSimplePerm("test", "test")
+	perm := server.NewSimplePerm("test", "test")
 	driver, err := file.NewDriver("./testdata")
 	assert.NoError(t, err)
 

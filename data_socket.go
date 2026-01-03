@@ -6,6 +6,7 @@ package server
 
 import (
 	"crypto/tls"
+	"errors"
 	"io"
 	"net"
 	"os"
@@ -16,7 +17,7 @@ import (
 	"syscall"
 	"time"
 
-	"goftp.io/server/v2/ratelimit"
+	"github.com/tejaskumark/goftp-server/ratelimit"
 )
 
 // DataSocket describes a data socket is used to send non-control data between the client and
@@ -54,14 +55,12 @@ func newActiveSocket(sess *Session, remote string, port int) (DataSocket, error)
 	sess.log("Opening active data connection to " + connectTo)
 
 	raddr, err := net.ResolveTCPAddr("tcp", connectTo)
-
 	if err != nil {
 		sess.log(err)
 		return nil, err
 	}
 
 	tcpConn, err := net.DialTCP("tcp", nil, raddr)
-
 	if err != nil {
 		sess.log(err)
 		return nil, err
@@ -211,18 +210,34 @@ func (socket *passiveSocket) Close() error {
 }
 
 func (socket *passiveSocket) ListenAndServe() (err error) {
-	laddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort("", strconv.Itoa(socket.port)))
+	// --- PATCH STARTS ---
+	address := net.JoinHostPort("", strconv.Itoa(socket.port))
+	lc := net.ListenConfig{
+		Control: func(network, address string, c syscall.RawConn) error {
+			return c.Control(func(fd uintptr) {
+				tos := socket.sess.server.DSCP << 2
+				_ = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IP, syscall.IP_TOS, tos)
+				_ = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IPV6, syscall.IPV6_TCLASS, tos)
+			})
+		},
+	}
+
+	// Create the generic listener
+	ln, err := lc.Listen(socket.sess.server.ctx, "tcp", address)
 	if err != nil {
 		socket.sess.log(err)
 		return err
 	}
 
-	var tcplistener *net.TCPListener
-	tcplistener, err = net.ListenTCP("tcp", laddr)
-	if err != nil {
-		socket.sess.log(err)
-		return err
+	// Convert back to *net.TCPListener to keep existing logic (SetDeadline) working
+	// This is safe because we forced "tcp" network in Listen
+	tcplistener, ok := ln.(*net.TCPListener)
+	if !ok {
+		socket.sess.log("should not be here in patch done while type asserting *net.TCPListener")
+		return errors.New("fatal error while type asserting *net.TCPListener")
 	}
+
+	// --- PATCH END ---
 
 	// The timeout, for a remote client to establish connection
 	// with a PASV style data connection.
