@@ -43,6 +43,7 @@ type Session struct {
 	tls           bool
 	clientSoft    string
 	Data          map[string]interface{} // shared data between different commands
+	qos           *qosFlow
 }
 
 // RemoteAddr returns the remote ftp client's address
@@ -167,7 +168,12 @@ func (sess *Session) Close() {
 	sess.reqUser = ""
 	sess.user = ""
 	if sess.dataConn != nil {
-		sess.dataConn.Close()
+		if err := sess.dataConn.Close(); err != nil {
+			sess.log(err)
+		}
+		if err := sess.qos.closeQoSFlow(); err != nil {
+			sess.log(err)
+		}
 		sess.dataConn = nil
 	}
 }
@@ -290,7 +296,12 @@ func (sess *Session) sendOutofbandData(data []byte) {
 	bytes := len(data)
 	if sess.dataConn != nil {
 		_, _ = sess.dataConn.Write(data)
-		sess.dataConn.Close()
+		if err := sess.dataConn.Close(); err != nil {
+			sess.log(err)
+		}
+		if err := sess.qos.closeQoSFlow(); err != nil {
+			sess.log(err)
+		}
 		sess.dataConn = nil
 	}
 	message := "Closing data connection, sent " + strconv.Itoa(bytes) + " bytes"
@@ -300,13 +311,23 @@ func (sess *Session) sendOutofbandData(data []byte) {
 func (sess *Session) sendOutofBandDataWriter(data io.ReadCloser) error {
 	bytes, err := io.Copy(sess.dataConn, data)
 	if err != nil {
-		sess.dataConn.Close()
+		if err = sess.dataConn.Close(); err != nil {
+			sess.log(err)
+		}
+		if err = sess.qos.closeQoSFlow(); err != nil {
+			sess.log(err)
+		}
 		sess.dataConn = nil
 		return err
 	}
 	message := "Closing data connection, sent " + strconv.Itoa(int(bytes)) + " bytes"
 	sess.writeMessage(226, message)
-	sess.dataConn.Close()
+	if err = sess.dataConn.Close(); err != nil {
+		sess.log(err)
+	}
+	if err = sess.qos.closeQoSFlow(); err != nil {
+		sess.log(err)
+	}
 	sess.dataConn = nil
 
 	return nil

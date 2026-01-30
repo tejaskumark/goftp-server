@@ -967,7 +967,14 @@ func (cmd commandRetr) Execute(sess *Session, param string) {
 	}
 	size, data, err := sess.server.Driver.GetFile(ctx, path, readPos)
 	if err == nil {
-		defer data.Close()
+		defer func() {
+			if err = sess.qos.closeQoSFlow(); err != nil {
+				sess.log(err)
+			}
+			if err = data.Close(); err != nil {
+				sess.log(err)
+			}
+		}()
 		sess.writeMessage(150, fmt.Sprintf("Data transfer starting %d bytes", size))
 		err = sess.sendOutofBandDataWriter(data)
 		sess.server.notifiers.AfterFileDownloaded(ctx, path, size, err)
@@ -1505,6 +1512,13 @@ func (cmd commandStor) Execute(sess *Session, param string) {
 	if err == nil {
 		msg := fmt.Sprintf("OK, received %d bytes", size)
 		sess.writeMessage(226, msg)
+		if err = sess.dataConn.Close(); err != nil {
+			sess.log(err)
+		}
+		if err = sess.qos.closeQoSFlow(); err != nil {
+			sess.log(err)
+		}
+
 	} else {
 		sess.writeMessage(450, fmt.Sprint("error during transfer: ", err))
 	}

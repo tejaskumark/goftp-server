@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tejaskumark/goftp-server"
-	"github.com/tejaskumark/goftp-server/minio"
+	server "github.com/tejaskumark/goftp-server"
+	"github.com/tejaskumark/goftp-server/driver/minio"
 
 	"github.com/jlaffaye/ftp"
 	"github.com/stretchr/testify/assert"

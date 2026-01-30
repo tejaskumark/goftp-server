@@ -53,18 +53,32 @@ func newActiveSocket(sess *Session, remote string, port int) (DataSocket, error)
 	connectTo := net.JoinHostPort(remote, strconv.Itoa(port))
 
 	sess.log("Opening active data connection to " + connectTo)
-
-	raddr, err := net.ResolveTCPAddr("tcp", connectTo)
+	// ----- Patch Start ----- //
+	// 1. Configure the Dialer with a Control hook
+	d := net.Dialer{
+		Timeout: 10 * time.Second,
+		Control: sess.setDSCPOnSocket,
+	}
+	// 2. Dial with a safety timeout
+	conn, err := d.Dial("tcp", connectTo)
 	if err != nil {
 		sess.log(err)
 		return nil, err
 	}
-
-	tcpConn, err := net.DialTCP("tcp", nil, raddr)
-	if err != nil {
-		sess.log(err)
+	// 3. Type Assert to *net.TCPConn
+	// This is safe because we specifically dialed "tcp" above.
+	tcpConn, ok := conn.(*net.TCPConn)
+	if !ok {
+		// This theoretically shouldn't happen if network is "tcp"
+		conn.Close()
+		err := &net.OpError{
+			Op:  "dial",
+			Net: "tcp",
+			Err: net.UnknownNetworkError("connection is not TCP"),
+		}
 		return nil, err
 	}
+	// ----- Patch End ----- //
 
 	socket := new(activeSocket)
 	socket.sess = sess
@@ -213,13 +227,7 @@ func (socket *passiveSocket) ListenAndServe() (err error) {
 	// --- PATCH STARTS ---
 	address := net.JoinHostPort("", strconv.Itoa(socket.port))
 	lc := net.ListenConfig{
-		Control: func(network, address string, c syscall.RawConn) error {
-			return c.Control(func(fd uintptr) {
-				tos := socket.sess.server.DSCP << 2
-				_ = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IP, syscall.IP_TOS, tos)
-				_ = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IPV6, syscall.IPV6_TCLASS, tos)
-			})
-		},
+		Control: socket.sess.setDSCPOnSocket,
 	}
 
 	// Create the generic listener
@@ -233,7 +241,7 @@ func (socket *passiveSocket) ListenAndServe() (err error) {
 	// This is safe because we forced "tcp" network in Listen
 	tcplistener, ok := ln.(*net.TCPListener)
 	if !ok {
-		socket.sess.log("should not be here in patch done while type asserting *net.TCPListener")
+		socket.sess.log("fatal error while type asserting *net.TCPListener")
 		return errors.New("fatal error while type asserting *net.TCPListener")
 	}
 
@@ -265,7 +273,7 @@ func (socket *passiveSocket) ListenAndServe() (err error) {
 	socket.lock.Lock()
 	go func() {
 		defer socket.lock.Unlock()
-
+		
 		conn, err := listener.Accept()
 		if err != nil {
 			socket.err = err
@@ -273,6 +281,15 @@ func (socket *passiveSocket) ListenAndServe() (err error) {
 		}
 		socket.err = nil
 		socket.conn = conn
+		// ---- PATCH START ----
+		var q qosFlow
+		socket.sess.qos = &q
+		if err := socket.sess.qos.setQoSFlow(conn, conn.RemoteAddr().String(),
+			socket.sess.server.DSCP); err != nil {
+			socket.sess.logf("error:%s setting QoS for %s", err, conn.RemoteAddr().String())
+		}
+		// ---- PATCH END ----
+
 		socket.reader = ratelimit.Reader(socket.conn, socket.sess.server.rateLimiter)
 		socket.writer = ratelimit.Writer(socket.conn, socket.sess.server.rateLimiter)
 		_ = listener.Close()
