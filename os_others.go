@@ -73,6 +73,9 @@ func (socket *passiveSocket) ListenAndServe() (err error) {
 			socket.err = err
 			return
 		}
+		if err := conn.(*net.TCPConn).SetNoDelay(true); err != nil {
+			socket.sess.log(err)
+		}
 		socket.err = nil
 		socket.conn = conn
 		// ---- PATCH START ----

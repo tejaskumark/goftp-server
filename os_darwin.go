@@ -143,7 +143,11 @@ func (socket *passiveSocket) ListenAndServe() (err error) {
 			socket.err = fmt.Errorf("connection not established by client, unknown path")
 			return
 		}
-
+		
+		// Set NoDelay to true to avoid Nagle Algorithm
+		if err := conn.(*net.TCPConn).SetNoDelay(true); err != nil {
+			socket.sess.log(err)
+		}
 		socket.err = nil
 		socket.conn = conn
 		// ---- PATCH START ----

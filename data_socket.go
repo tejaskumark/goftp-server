@@ -75,6 +75,9 @@ func newActiveSocket(sess *Session, remote string, port int) (DataSocket, error)
 		}
 		return nil, err
 	}
+	if err := tcpConn.SetNoDelay(true); err != nil {
+		sess.log(err)
+	}
 	// ----- Patch End ----- //
 
 	socket := new(activeSocket)
